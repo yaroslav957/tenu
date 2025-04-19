@@ -1,0 +1,25 @@
+[package]
+name = "rncp"
+authors = ["Timofey Arkhipov", "Yaroslav Lobachev"]
+license = "MIT"
+version = "0.1.0"
+edition = "2024"
+
+[profile.dev]
+opt-level = 2
+debug = true
+panic = "abort"
+
+[profile.release]
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+
+[dependencies]
+# ZERO DEPENDENCY #
+
+[features]
+default = []
+app-builder = []

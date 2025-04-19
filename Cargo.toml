@@ -1,0 +1,12 @@
+[workspace]
+members = [
+    "rncp", "tests",
+]
+resolver = "2"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
