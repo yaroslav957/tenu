@@ -1,4 +1,10 @@
-use crate::{Args, parser::ValueParser};
+// Фул переписать лол
+
+use crate::{
+    env::Args,
+    error::{Error, Result},
+    parser::ValueParser,
+};
 
 pub struct ArgBuilder<'a, T> {
     name: &'static str,
@@ -13,7 +19,7 @@ impl<'a, T> ArgBuilder<'a, T> {
         Self {
             name,
             parser: None,
-            short: false,
+            short: false, // ???
         }
     }
 
@@ -26,16 +32,17 @@ impl<'a, T> ArgBuilder<'a, T> {
         self.short = true;
         self
     }
-
-    pub fn get(self, args: &Args<'a>) -> T {
-        let value = args
-            .0
-            .iter()
-            .skip_while(|n| n.0 != self.name)
-            .skip(1)
-            .next()
-            .unwrap();
-
-        self.parser.unwrap().parse(value.0)
+    
+    // переписать этот бред
+    pub fn get(&self, args: &Args<'a>) -> Result<T> {
+        match args.0.iter().enumerate().find(|&(_, n)| *n == self.name) {
+            Some((p, _)) if p + 1 < args.0.len() => {
+                let value_str = &args.0[p + 1];
+                let parser = self.parser.ok_or(Error::DuplicatedArg)?; // затычка пока не сделаю норм ерори
+                parser.parse(value_str)
+            }
+            Some(_) => Err(Error::MissingArgValue),
+            None => Err(Error::MissingArg),
+        }
     }
 }
