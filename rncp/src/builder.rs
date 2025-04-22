@@ -1,4 +1,8 @@
 // Фул переписать лол
+// UPD: rewrote ur mother
+// UPD2: OCD moment bro, it lgtm
+
+use alloc::vec::Vec;
 
 use crate::{
     env::Args,
@@ -7,19 +11,29 @@ use crate::{
 };
 
 pub struct ArgBuilder<'a, T> {
+    /// Argument name.
     name: &'static str,
-    // add `aliases` field
+
+    /// Value parser
     parser: Option<&'a dyn ValueParser<T>>,
+
+    /// A command aliases
+    aliases: Vec<&'static str>,
+
+    /// Whether to create a short version of the command,
+    /// for exapmle, for a `--name` command `-n` would be created
     short: bool,
 }
 
 // What u think about using `where`? Just a question
+// UPD: I don't see any needs for `where` lol
 impl<'a, T> ArgBuilder<'a, T> {
     pub fn new(name: &'static str) -> Self {
         Self {
             name,
             parser: None,
-            short: false, // ???
+            aliases: Vec::with_capacity(0), // No need to allocate for now
+            short: false,
         }
     }
 
@@ -32,8 +46,15 @@ impl<'a, T> ArgBuilder<'a, T> {
         self.short = true;
         self
     }
+
+    pub fn alias(mut self, name: &'static str) -> Self {
+        self.aliases.push(name);
+        self
+    }
     
-    // переписать этот бред
+    // TODO: Rewrite
+    // And it's not supposed to be here because it's not a builder responsibility
+    // to be honest
     pub fn get(&self, args: &Args<'a>) -> Result<T> {
         match args.0.iter().enumerate().find(|&(_, n)| *n == self.name) {
             Some((p, _)) if p + 1 < args.0.len() => {
@@ -46,3 +67,4 @@ impl<'a, T> ArgBuilder<'a, T> {
         }
     }
 }
+
