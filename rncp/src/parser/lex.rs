@@ -1,10 +1,10 @@
-use core::str::Chars;
 use alloc::vec::Vec;
+use core::str::Chars;
 
 pub enum Token<'a> {
     Key(&'a str),
-    Value(&'a str),
-    Raw(&'a str)
+    Value(&'a str), // Опшен, ведь может не быть по сути валуе, хз
+    Raw(&'a str),
 }
 
 pub struct Parser<'a> {
@@ -18,7 +18,7 @@ impl<'a> Parser<'a> {
     pub fn new(src: &'a str) -> Self {
         Self {
             is_raw: false,
-            src: src.chars()
+            src: src.chars(),
         }
     }
 
@@ -26,4 +26,3 @@ impl<'a> Parser<'a> {
         todo!()
     }
 }
-

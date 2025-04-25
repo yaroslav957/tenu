@@ -5,3 +5,13 @@ edition = "2024"
 
 [dependencies]
 rncp = { path = "../rncp", version = "0.1.0" }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"

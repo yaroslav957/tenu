@@ -1,10 +1,6 @@
 mod lex;
 
-use crate::error::{
-    Error,
-    Result,
-    ParserError
-};
+use crate::error::{Error, ParserError, Result};
 
 pub trait ValueParser<T: Sized> {
     fn parse(&self, arg: &'static str) -> Result<T>;
@@ -15,6 +11,7 @@ pub struct StrParser;
 
 impl ValueParser<usize> for IntParser {
     fn parse(&self, arg: &'static str) -> Result<usize> {
-        arg.parse().or(Err(Error::ParseError(ParserError::IntParse(arg))))
+        arg.parse()
+            .or(Err(Error::ParseError(ParserError::IntParse(arg))))
     }
 }

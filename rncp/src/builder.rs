@@ -27,12 +27,13 @@ pub struct ArgBuilder<'a, T> {
 
 // What u think about using `where`? Just a question
 // UPD: I don't see any needs for `where` lol
+// Dolbabe? why not make `where` everywhere = читаемый, идиоматичный код
 impl<'a, T> ArgBuilder<'a, T> {
     pub fn new(name: &'static str) -> Self {
         Self {
             name,
             parser: None,
-            aliases: Vec::with_capacity(0), // No need to allocate for now
+            aliases: Vec::with_capacity(0),
             short: false,
         }
     }
@@ -51,11 +52,12 @@ impl<'a, T> ArgBuilder<'a, T> {
         self.aliases.push(name);
         self
     }
-    
+
     // TODO: Rewrite
     // And it's not supposed to be here because it's not a builder responsibility
     // to be honest
-    pub fn get(&self, args: &Args<'a>) -> Result<T> {
+    // Я насрал. переделай
+    pub fn get(&self, args: &Args) -> Result<T> {
         match args.0.iter().enumerate().find(|&(_, n)| *n == self.name) {
             Some((p, _)) if p + 1 < args.0.len() => {
                 let value_str = &args.0[p + 1];
@@ -67,4 +69,3 @@ impl<'a, T> ArgBuilder<'a, T> {
         }
     }
 }
-
