@@ -1,5 +1,5 @@
 use core::ptr;
-use rncp::*;
+use rncp::{prelude::RawArgs, *};
 use std::os::raw::c_char;
 
 unsafe extern "C" fn capture(argc: i32, argv: *const *const c_char) {
@@ -18,7 +18,7 @@ static mut ARGV: *const *const c_char = ptr::null();
 static CAPTURE: unsafe extern "C" fn(i32, *const *const c_char) = capture;
 
 fn main() {
-    let args = unsafe { Args::from_raw_env(ARGC, ARGV).unwrap() };
+    let args = unsafe { RawArgs::from_raw_env(ARGC, ARGV).unwrap() };
     let foo = builder::ArgBuilder::new("foo")
         .with_value(&parser::IntParser)
         .short()

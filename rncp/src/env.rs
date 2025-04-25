@@ -6,9 +6,9 @@ use core::ffi::{CStr, c_char, c_int};
 ///
 /// After starting, it lives until the end of program execution.
 #[derive(Debug)]
-pub struct Args(pub Vec<&'static str>);
+pub struct RawArgs(pub Vec<&'static str>);
 
-impl Args {
+impl RawArgs {
     /// Creates Args from raw stack pointer.
     ///
     /// SAFETY:
@@ -18,7 +18,7 @@ impl Args {
         // ,-------------------,
         // |       argc        | <-- stack top
         // !-------------------!
-        // |       argv        | <-- *stack_top.offset(8)
+        // |       argv        | <-- stack_top.offset(8)
         // !-------------------!
         // |       envp        |
         // !-------------------!
@@ -32,7 +32,7 @@ impl Args {
                 stack_top.offset(8) as *const *const c_char,
             )
         };
-        unsafe { Args::from_raw_env(argc, argv) }
+        unsafe { RawArgs::from_raw_env(argc, argv) }
     }
 
     /// Creates Args from raw environment arguments.
@@ -55,14 +55,14 @@ impl Args {
             buf.push(arg);
         }
 
-        Ok(Args(buf))
+        Ok(RawArgs(buf))
     }
 
     pub fn from_str(string: &'static str) -> Self {
-        Args(string.split_whitespace().collect())
+        RawArgs(string.split_whitespace().collect())
     }
 
     pub fn from_vec(vec: Vec<&'static str>) -> Self {
-        Args(vec)
+        RawArgs(vec)
     }
 }

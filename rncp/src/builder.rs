@@ -1,11 +1,12 @@
 // Фул переписать лол
 // UPD: rewrote ur mother
 // UPD2: OCD moment bro, it lgtm
+// UPD3: что такое lgtm, typo error in 'lgbt' word?
 
 use alloc::vec::Vec;
 
 use crate::{
-    env::Args,
+    env::RawArgs,
     error::{Error, Result},
     parser::ValueParser,
 };
@@ -57,7 +58,7 @@ impl<'a, T> ArgBuilder<'a, T> {
     // And it's not supposed to be here because it's not a builder responsibility
     // to be honest
     // Я насрал. переделай
-    pub fn get(&self, args: &Args) -> Result<T> {
+    pub fn get(&self, args: &RawArgs) -> Result<T> {
         match args.0.iter().enumerate().find(|&(_, n)| *n == self.name) {
             Some((p, _)) if p + 1 < args.0.len() => {
                 let value_str = &args.0[p + 1];

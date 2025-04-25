@@ -2,10 +2,11 @@
 
 extern crate alloc;
 
-// TODO prelude
-pub(crate) mod env;
-pub use env::*;
-
 pub mod builder;
+pub(crate) mod env;
 pub mod error;
 pub mod parser;
+
+pub mod prelude {
+    pub use crate::env::*;
+}

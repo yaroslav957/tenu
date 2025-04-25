@@ -11,8 +11,7 @@ pub enum Error {
     ParseError(ParserError),
 }
 
-/// 'static, because arg name lifetime in `ArgBuilder` is 'static.
-/// (arg value has the same lifetime)
+/// 'static, cuz arg has 'static lifetime
 #[derive(Debug)]
 pub enum ParserError {
     IntParse(&'static str),
