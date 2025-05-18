@@ -18,7 +18,8 @@ strip = "symbols"
 panic = "abort"
 
 [dependencies]
-# ZERO DEPENDENCY #
+clap = "4.5.38"
+# ONLY ONE DEPENDENCY #
 
 [features]
 default = []
