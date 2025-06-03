@@ -16,8 +16,8 @@ authors.workspace = true
 
 [dependencies]
 # ZERO DEPENDENCY #
-tenu_env = { version = "0.1.0", path = "./tenu_env" }
-tenu_parser = { version = "0.1.0", path = "./tenu_parser" }
+tenu_env = { path = "./tenu_env" }
+tenu_parser = { path = "./tenu_parser" }
 
 [features]
 default = []

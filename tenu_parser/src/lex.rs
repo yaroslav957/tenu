@@ -1,6 +1,5 @@
-use alloc::vec::Vec;
 use alloc::boxed::Box;
-
+use alloc::vec::Vec;
 
 #[derive(Debug)]
 pub enum Token<'a> {
@@ -10,7 +9,7 @@ pub enum Token<'a> {
 }
 
 pub struct Parser<'a> {
-    src: &'a[*const u8],
+    src: &'a [*const u8],
     table: LookupTable,
 
     /// Whether a `--` terminator occured
@@ -47,7 +46,6 @@ impl<'a> Parser<'a> {
         buffer
     }
      */
-    
 
     fn parse_arg(&self, buffer: &mut Vec<Token<'a>>, arg: &'a str) {
         let mut iter = arg.char_indices().peekable();
@@ -57,7 +55,9 @@ impl<'a> Parser<'a> {
 
             if let Some((_, '-')) = iter.peek().copied() {
                 // looks terrible but no allocations thou
-                let Some((start, c)) = iter.next() else { panic!() };
+                let Some((start, c)) = iter.next() else {
+                    panic!()
+                };
 
                 let option_start = start + c.len_utf8();
                 let mut end = arg.len();
@@ -78,8 +78,8 @@ impl<'a> Parser<'a> {
                         if let Some(opt) = self.table.lookup_short(*c) {
                             todo!()
                         }
-                    },
-                    _ => todo!()
+                    }
+                    _ => todo!(),
                 }
             }
 
@@ -96,7 +96,7 @@ pub enum ArgType {
     /// Argument required
     Required,
     /// Optional argument
-    Option
+    Option,
 }
 
 ///               long name     type     short name
@@ -114,4 +114,3 @@ impl LookupTable {
         self.0.iter().find(|row| row.2 == arg)
     }
 }
-
