@@ -1,0 +1,24 @@
+[workspace]
+members = ["tenu_env", "tenu_parser", "tests"]
+resolver = "2"
+
+[workspace.package]
+authors = ["Yaroslav Lobachev", "Timofey Arkhipov"]
+license = "MIT"
+edition = "2024"
+
+[package]
+name = "tenu"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+# ZERO DEPENDENCY #
+tenu_env = { version = "0.1.0", path = "./tenu_env" }
+tenu_parser = { version = "0.1.0", path = "./tenu_parser" }
+
+[features]
+default = []
+app-builder = []
