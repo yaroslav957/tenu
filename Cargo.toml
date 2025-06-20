@@ -14,11 +14,24 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 
+[profile.dev]
+opt-level = 2
+debug = true
+panic = "abort"
+
+[profile.release]
+opt-level = "z"
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+
 [dependencies]
-# ZERO DEPENDENCY #
-tenu_env = { path = "./tenu_env" }
 tenu_parser = { path = "./tenu_parser" }
+tenu_env = { path = "./tenu_env", optional = true }
+
+[dev-dependencies]
+tests = { path = "./tests" }
 
 [features]
-default = []
-app-builder = []
+env = ["dep:tenu_env"]
