@@ -7,12 +7,14 @@ use core::{error, fmt, result, str::Utf8Error};
 
 #[derive(Debug, PartialEq)]
 #[non_exhaustive]
-pub enum Error {
+pub enum Error<'a> {
     InvalidValue,
     InvalidUtf8Arg,
     MissingArg,
     MissingArgValue,
     DuplicatedArg,
+    UnknownLongOption(&'a str),
+    UnknownShortOption(&'a str),
     ParseError(ParserError),
 }
 
@@ -23,7 +25,7 @@ pub enum ParserError {
     StrParse(&'static str),
 }
 
-impl fmt::Display for Error {
+impl<'a> fmt::Display for Error<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidValue => write!(f, "Invalid argument value"),
@@ -32,6 +34,8 @@ impl fmt::Display for Error {
             Self::MissingArgValue => write!(f, "Missing option value"),
             Self::DuplicatedArg => write!(f, "Duplicated argument"),
             Self::ParseError(e) => write!(f, "{e}"),
+            Self::UnknownLongOption(opt) => write!(f, "Unknown long option --{opt}"),
+            Self::UnknownShortOption(opt) => write!(f, "Unknown short option -{opt}")
         }
     }
 }
@@ -45,18 +49,18 @@ impl fmt::Display for ParserError {
     }
 }
 
-impl From<ParserError> for Error {
+impl From<ParserError> for Error<'_> {
     fn from(e: ParserError) -> Self {
         Error::ParseError(e)
     }
 }
 
-impl From<Utf8Error> for Error {
+impl From<Utf8Error> for Error<'_> {
     fn from(_: Utf8Error) -> Self {
         Error::InvalidUtf8Arg
     }
 }
 
-impl error::Error for Error {}
+impl error::Error for Error<'_> {}
 
-pub type Result<T> = result::Result<T, Error>;
+pub type Result<'a, T> = result::Result<T, Error<'a>>;

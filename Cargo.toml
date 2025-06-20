@@ -28,7 +28,7 @@ panic = "abort"
 
 [dependencies]
 tenu_parser = { path = "./tenu_parser" }
-tenu_env = { path = "./tenu_env", optional = true }
+tenu_env = { path = "tenu_env", optional = true }
 
 [dev-dependencies]
 tests = { path = "./tests" }

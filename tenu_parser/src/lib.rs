@@ -10,3 +10,6 @@ extern crate alloc;
 pub mod error;
 pub mod lex;
 pub mod parser;
+
+mod tests;
+
