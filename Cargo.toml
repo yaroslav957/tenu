@@ -27,11 +27,11 @@ strip = "symbols"
 panic = "abort"
 
 [dependencies]
-tenu_parser = { path = "./tenu_parser" }
+tenu_parser = { path = "tenu_parser" }
 tenu_env = { path = "tenu_env", optional = true }
 
 [dev-dependencies]
-tests = { path = "./tests" }
+tests = { path = "tests" }
 
 [features]
 env = ["dep:tenu_env"]

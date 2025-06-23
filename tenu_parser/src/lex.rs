@@ -5,7 +5,7 @@ use crate::error::Error;
 
 #[derive(Debug)]
 pub enum Token<'a> {
-    Option(&'a str, Option<&'a str>), 
+    Option(&'a str, Option<&'a str>),
     Value(&'a str),
 }
 
@@ -18,6 +18,7 @@ pub enum ArgType {
     Option,
 }
 
+///                                      (Optional)              
 ///               long name     type     short name
 pub type CliOption = (&'static str, ArgType, char);
 
@@ -38,14 +39,19 @@ impl LookupTable {
     }
 }
 
+// pub struct Parser<'a, T: AsRef<str>> {
+//    src: &'a [T],
+//    table: LookupTable,
+//    is_raw: bool,
+// }
 pub struct Parser<'a> {
     src: &'a [&'a str],
     table: LookupTable,
-    /// Whether a `--` terminator occured
     is_raw: bool,
 }
 
 impl<'a> Parser<'a> {
+    //         src: &'a [T]
     pub fn new(src: &'a [&'a str], table: LookupTable) -> Self {
         Self {
             src,
@@ -54,6 +60,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // и тут уже делаешь с &'a [T]
     pub fn parse(&mut self) -> Result<Vec<Token<'a>>, Error> {
         let mut buffer = Vec::new();
         let mut iter = self.src.iter().peekable();
@@ -80,7 +87,7 @@ impl<'a> Parser<'a> {
         &self,
         buffer: &mut Vec<Token<'a>>,
         arg: &'a str,
-        iter: &mut iter::Peekable<I>
+        iter: &mut iter::Peekable<I>,
     ) -> Result<(), Error<'a>>
     where
         I: Iterator<Item = &'a &'a str>,
@@ -115,10 +122,7 @@ impl<'a> Parser<'a> {
                             buffer.push(Token::Option(name, None));
                         }
                         ArgType::Required => {
-                            let next = iter
-                                .next()
-                                .copied()
-                                .unwrap(); // TODO: Missing value
+                            let next = iter.next().copied().unwrap(); // TODO: Missing value
                             buffer.push(Token::Option(name, Some(next)));
                         }
                         ArgType::Option => {
@@ -137,7 +141,7 @@ impl<'a> Parser<'a> {
                     }
                     return Ok(());
                 } else {
-                    return Err(Error::UnknownLongOption(name))
+                    return Err(Error::UnknownLongOption(name));
                 }
             } else {
                 // Short options like -zov or -o value
@@ -153,10 +157,7 @@ impl<'a> Parser<'a> {
                                     let value = &arg[i..];
                                     buffer.push(Token::Option(&opt.0, Some(value)));
                                 } else {
-                                    let next = iter
-                                        .next()
-                                        .copied()
-                                        .unwrap(); // TODO
+                                    let next = iter.next().copied().unwrap(); // TODO
                                     buffer.push(Token::Option(&opt.0, Some(next)));
                                 }
 
@@ -196,4 +197,3 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 }
-

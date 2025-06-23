@@ -1,17 +1,32 @@
-use tenu::lex::{LookupTable, Parser, CliOption, ArgType};
+use tenu::{
+    Env,
+    lex::{ArgType, LookupTable, Parser},
+};
 
-static OPTIONS: &[CliOption] = &[
+const OPTIONS: LookupTable = LookupTable(&[
     ("help", ArgType::None, 'h'),
     ("output", ArgType::Required, 'o'),
     ("verbose", ArgType::Option, 'v'),
-];
+]);
 
-// Please do not remove these tests (!!!), but you can always move them into tenu_parser, I wouldn't mind :p
 fn main() {
-    let mut parser = Parser::new(
-        &["-h", "-ohedgeberry-s-mother.jpg", "-v", "log.txt", "l420.txt", "--", "--zov"],
-        LookupTable(OPTIONS)
-    );
-    dbg!(parser.parse());
-}
+    let args = Env::args();
 
+    // API:
+    //
+    // Parser::new(OPTIONS).parse(src);
+    let mut parser = Parser::new(
+        &[
+            "-h",
+            "-ohedgeberry-s-mother.jpg",
+            "-v",
+            "log.txt",
+            "l420.txt",
+            "--",
+            "--zov",
+        ],
+        OPTIONS,
+    );
+
+    dbg!(parser.parse().unwrap());
+}

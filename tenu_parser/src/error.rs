@@ -35,7 +35,7 @@ impl<'a> fmt::Display for Error<'a> {
             Self::DuplicatedArg => write!(f, "Duplicated argument"),
             Self::ParseError(e) => write!(f, "{e}"),
             Self::UnknownLongOption(opt) => write!(f, "Unknown long option --{opt}"),
-            Self::UnknownShortOption(opt) => write!(f, "Unknown short option -{opt}")
+            Self::UnknownShortOption(opt) => write!(f, "Unknown short option -{opt}"),
         }
     }
 }

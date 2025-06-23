@@ -1,17 +1,12 @@
 use core::str::Utf8Error;
 
-#[derive(Debug)]
+#[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Arg {
     pub(crate) inner: *const u8,
 }
 
 impl Arg {
-    /// SAFETY:
-    pub(crate) unsafe fn from_ptr(ptr: *const u8) -> Self {
-        Self { inner: ptr }
-    }
-
     ///
     pub fn as_bytes(&self) -> &[u8] {
         // SAFETY:
