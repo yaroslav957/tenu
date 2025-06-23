@@ -1,199 +1,324 @@
-use alloc::vec::Vec;
-use core::iter;
-
-use crate::error::Error;
+#[derive(Debug)]
+pub enum LookupKey {
+    Unknown,
+    Single,
+    RequireValue(KeyType),
+}
 
 #[derive(Debug)]
-pub enum Token<'a> {
-    Option(&'a str, Option<&'a str>),
-    Value(&'a str),
+pub enum KeyType {
+    Int,
+    UInt,
+    String,
 }
 
-pub enum ArgType {
-    /// No argument expected
-    None,
-    /// Argument required
-    Required,
-    /// Optional argument
-    Option,
+#[derive(Debug)]
+pub enum LongOrShort<'a> {
+    Long(&'a str),
+    Short(char),
 }
 
-///                                      (Optional)              
-///               long name     type     short name
-pub type CliOption = (&'static str, ArgType, char);
+#[derive(Debug)]
+pub struct ParseError<'a> {
+    pub kind: ParseErrorKind,
 
-/// Since we need to know declared options in a parsing stage,
-/// lookup table is declared here
-pub struct LookupTable(pub &'static [CliOption]);
-
-/// Using a linear search here because the number of CLI arguments
-/// is usually small, so no need to have a hashmap here just for that.
-/// GNU's `getopt` lookup table implemented the same way.
-impl LookupTable {
-    pub fn lookup_short(&self, arg: char) -> Option<&'static CliOption> {
-        self.0.iter().find(|row| row.2 == arg)
-    }
-
-    pub fn lookup_long(&self, name: &str) -> Option<&'static CliOption> {
-        self.0.iter().find(|row| row.0 == name)
-    }
+    pub key: Option<LongOrShort<'a>>,
+    pub value: Option<&'a str>,
+    pub expected_ty: Option<KeyType>,
 }
 
-// pub struct Parser<'a, T: AsRef<str>> {
-//    src: &'a [T],
-//    table: LookupTable,
-//    is_raw: bool,
-// }
-pub struct Parser<'a> {
-    src: &'a [&'a str],
-    table: LookupTable,
-    is_raw: bool,
+#[derive(Debug)]
+pub enum ParseErrorKind {
+    UnknownKey,
+    ValueRequired,
+    UnexpectedValue,
+    InvalidKeyType,
+    UnexpectedRaw,
 }
 
-impl<'a> Parser<'a> {
-    //         src: &'a [T]
-    pub fn new(src: &'a [&'a str], table: LookupTable) -> Self {
+impl<'a> ParseError<'a> {
+    fn unexpected_raw(raw: &'a str) -> Self {
         Self {
-            src,
-            table,
-            is_raw: false,
+            kind: ParseErrorKind::UnexpectedRaw,
+            key: None,
+            value: Some(raw),
+            expected_ty: None,
         }
     }
 
-    // и тут уже делаешь с &'a [T]
-    pub fn parse(&mut self) -> Result<Vec<Token<'a>>, Error> {
-        let mut buffer = Vec::new();
-        let mut iter = self.src.iter().peekable();
-
-        while let Some(&arg) = iter.next() {
-            if !self.is_raw && arg == "--" {
-                self.is_raw = true;
-                continue;
-            }
-
-            if self.is_raw {
-                buffer.push(Token::Value(arg));
-                continue;
-            }
-
-            self.parse_arg(&mut buffer, arg, &mut iter)?;
+    fn unknown_short_key(key: char) -> Self {
+        Self {
+            kind: ParseErrorKind::UnknownKey,
+            key: Some(LongOrShort::Short(key)),
+            value: None,
+            expected_ty: None,
         }
-
-        Ok(buffer)
     }
 
-    // TODO: 1. write tests 2. refactoring
-    fn parse_arg<I>(
-        &self,
-        buffer: &mut Vec<Token<'a>>,
-        arg: &'a str,
-        iter: &mut iter::Peekable<I>,
-    ) -> Result<(), Error<'a>>
+    fn unknown_key(key: &'a str) -> Self {
+        Self {
+            kind: ParseErrorKind::UnknownKey,
+            key: Some(LongOrShort::Long(key)),
+            value: None,
+            expected_ty: None,
+        }
+    }
+
+    fn unexpected_value(key: &'a str, value: &'a str) -> Self {
+        Self {
+            kind: ParseErrorKind::UnexpectedValue,
+            key: Some(LongOrShort::Long(key)),
+            value: Some(value),
+            expected_ty: None,
+        }
+    }
+
+    fn expected_value(key: &'a str) -> Self {
+        Self {
+            kind: ParseErrorKind::ValueRequired,
+            key: Some(LongOrShort::Long(key)),
+            value: None,
+            expected_ty: None,
+        }
+    }
+
+    fn expected_value_short(key: char) -> Self {
+        Self {
+            kind: ParseErrorKind::ValueRequired,
+            key: Some(LongOrShort::Short(key)),
+            value: None,
+            expected_ty: None,
+        }
+    }
+
+    fn invalid_key_type(key: &'a str, value: &'a str, expected_ty: KeyType) -> Self {
+        Self {
+            kind: ParseErrorKind::InvalidKeyType,
+            key: Some(LongOrShort::Long(key)),
+            value: Some(value),
+            expected_ty: Some(expected_ty),
+        }
+    }
+
+    fn invalid_short_key_type(key: char, value: &'a str, expected_ty: KeyType) -> Self {
+        Self {
+            kind: ParseErrorKind::InvalidKeyType,
+            key: Some(LongOrShort::Short(key)),
+            value: Some(value),
+            expected_ty: Some(expected_ty),
+        }
+    }
+
+    fn invalid_raw_key_type(raw: &'a str, expected_ty: KeyType) -> Self {
+        Self {
+            kind: ParseErrorKind::InvalidKeyType,
+            key: None,
+            value: Some(raw),
+            expected_ty: Some(expected_ty),
+        }
+    }
+}
+
+pub trait ParseInto<'a> {
+    type Into;
+    type Error: From<ParseError<'a>>;
+
+    // я слишком сонный, чтобы понять, правильно ли тут расставлены лт, сори
+    // допишу утром
+
+    fn lookup_short(&self, short: char) -> LookupKey;
+    fn parse_short(&mut self, short: char) -> Result<(), Self::Error>;
+    fn parse_short_int(&mut self, short: char, value: i64) -> Result<(), Self::Error>;
+    fn parse_short_uint(&mut self, short: char, value: u64) -> Result<(), Self::Error>;
+    fn parse_short_str(&mut self, short: char, value: &'a str) -> Result<(), Self::Error>;
+
+    fn lookup_long(&self, long: &str) -> LookupKey;
+    fn parse_long(&mut self, long: &str) -> Result<(), Self::Error>;
+    fn parse_long_int(&mut self, long: &'a str, value: i64) -> Result<(), Self::Error>;
+    fn parse_long_uint(&mut self, long: &'a str, value: u64) -> Result<(), Self::Error>;
+    fn parse_long_str(&mut self, long: &'a str, value: &'a str) -> Result<(), Self::Error>;
+
+    fn lookup_raw(&self) -> Option<KeyType>;
+    fn parse_raw_str(&mut self, raw: &'a str) -> Result<(), Self::Error>;
+    fn parse_raw_int(&mut self, raw: i64) -> Result<(), Self::Error>;
+    fn parse_raw_uint(&mut self, raw: u64) -> Result<(), Self::Error>;
+
+    fn parse_end(self) -> Result<Self::Into, Self::Error>;
+}
+
+pub trait ParseIntoExt<'a>: ParseInto<'a> + Sized {
+    fn parse<I>(self, args: I) -> Result<Self::Into, Self::Error>
     where
-        I: Iterator<Item = &'a &'a str>,
+        I: Iterator<Item = &'a str>,
     {
-        let mut chars = arg.char_indices().peekable();
+        Parser::new(self, args).parse_to_end()
+    }
+}
+impl<'a, T: ParseInto<'a> + Sized> ParseIntoExt<'a> for T {}
 
-        if let Some((_, '-')) = chars.peek() {
-            chars.next();
+pub struct Parser<T, I> {
+    raw_args: I,
+    parse_only_raw: bool,
 
-            if let Some((_, '-')) = chars.peek() {
-                chars.next();
-                let option_name_start = chars.peek().map(|(i, _)| *i).unwrap(); // TODO
+    inner_parser: T,
+}
 
-                // Check for '=' for --option=value syntax
-                if let Some(eq_pos) = arg[option_name_start..].find('=') {
-                    let (name, value) = arg[option_name_start..].split_at(eq_pos);
-                    let value = &value[1..]; // skip '='
+impl<T, I> Parser<T, I> {
+    pub fn new(parser: T, raw_args: I) -> Self
+    where
+        T: Sized,
+    {
+        Self {
+            raw_args,
+            parse_only_raw: false,
 
-                    if let Some(_) = self.table.lookup_long(name) {
-                        buffer.push(Token::Option(name, Some(value)));
-                        return Ok(());
-                    } else {
-                        return Err(Error::UnknownLongOption(name));
-                    }
-                }
+            inner_parser: parser,
+        }
+    }
+}
 
-                let name = &arg[option_name_start..];
+impl<'a, T: ParseInto<'a>, I: Iterator<Item = &'a str>> Parser<T, I> {
+    fn parse_raw(&mut self, arg: &'a str) -> Result<(), T::Error> {
+        let Some(info) = self.inner_parser.lookup_raw() else {
+            return Err(ParseError::unexpected_raw(arg).into());
+        };
 
-                if let Some(opt) = self.table.lookup_long(name) {
-                    match opt.1 {
-                        ArgType::None => {
-                            buffer.push(Token::Option(name, None));
-                        }
-                        ArgType::Required => {
-                            let next = iter.next().copied().unwrap(); // TODO: Missing value
-                            buffer.push(Token::Option(name, Some(next)));
-                        }
-                        ArgType::Option => {
-                            let next = iter.peek().copied();
-                            if let Some(&next_val) = next {
-                                if !next_val.starts_with('-') {
-                                    buffer.push(Token::Option(name, Some(next_val)));
-                                    iter.next(); // consume value
-                                } else {
-                                    buffer.push(Token::Option(name, None));
-                                }
-                            } else {
-                                buffer.push(Token::Option(name, None));
-                            }
-                        }
-                    }
-                    return Ok(());
-                } else {
-                    return Err(Error::UnknownLongOption(name));
-                }
-            } else {
-                // Short options like -zov or -o value
-                while let Some((opt_start, c)) = chars.next() {
-                    if let Some(opt) = self.table.lookup_short(c) {
-                        match opt.1 {
-                            ArgType::None => {
-                                buffer.push(Token::Option(&opt.0, None));
-                            }
-                            ArgType::Required => {
-                                // Check if value is squeezed, e.g., -ofile
-                                if let Some((i, _)) = chars.peek().copied() {
-                                    let value = &arg[i..];
-                                    buffer.push(Token::Option(&opt.0, Some(value)));
-                                } else {
-                                    let next = iter.next().copied().unwrap(); // TODO
-                                    buffer.push(Token::Option(&opt.0, Some(next)));
-                                }
+        match info {
+            KeyType::String => self.inner_parser.parse_raw_str(arg),
+            KeyType::Int => arg
+                .parse::<i64>()
+                .map_err(|_| ParseError::invalid_raw_key_type(arg, info).into())
+                .and_then(|value| self.inner_parser.parse_raw_int(value)),
+            KeyType::UInt => arg
+                .parse::<u64>()
+                .map_err(|_| ParseError::invalid_raw_key_type(arg, info).into())
+                .and_then(|value| self.inner_parser.parse_raw_uint(value)),
+        }
+    }
 
-                                return Ok(());
-                            }
-                            ArgType::Option => {
-                                if let Some((i, _)) = chars.peek().copied() {
-                                    let value = &arg[i..];
-                                    buffer.push(Token::Option(&opt.0, Some(value)));
-                                    return Ok(());
-                                } else {
-                                    let next = iter.peek().copied();
-                                    if let Some(&next_val) = next {
-                                        if !next_val.starts_with('-') {
-                                            buffer.push(Token::Option(&opt.0, Some(next_val)));
-                                            iter.next();
-                                        } else {
-                                            buffer.push(Token::Option(&opt.0, None));
-                                        }
-                                    } else {
-                                        buffer.push(Token::Option(&opt.0, None));
-                                    }
-                                }
-                                return Ok(());
-                            }
-                        }
-                    } else {
-                        return Err(Error::UnknownShortOption(&arg[opt_start..=opt_start])); // cringy
-                    }
-                }
-                return Ok(());
-            }
+    pub fn parse_once(&mut self) -> Option<Result<(), T::Error>> {
+        let arg = self.raw_args.next()?;
+
+        if self.parse_only_raw {
+            return Some(self.parse_raw(arg));
         }
 
-        buffer.push(Token::Value(arg));
+        if let Some(arg) = arg.strip_prefix("--") {
+            if arg.is_empty() {
+                self.parse_only_raw = true;
+                return Some(Ok(()));
+            }
 
-        Ok(())
+            let (key, value) = match arg.split_once('=') {
+                Some((arg, value)) => (arg, Some(value)),
+                None => (arg, None),
+            };
+            let key_info = self.inner_parser.lookup_long(key);
+            match (key_info, value) {
+                (LookupKey::Unknown, _) => Some(Err(ParseError::unknown_key(key).into())),
+                (LookupKey::Single, Some(value)) => {
+                    Some(Err(ParseError::unexpected_value(key, value).into()))
+                }
+                (LookupKey::Single, None) => Some(self.inner_parser.parse_long(key)),
+                (LookupKey::RequireValue(ty), value) => {
+                    let value = match value {
+                        Some(v) => v,
+                        None => {
+                            let Some(value) = self.raw_args.next() else {
+                                return Some(Err(ParseError::expected_value(key).into()));
+                            };
+                            value
+                        }
+                    };
+
+                    match ty {
+                        KeyType::String => Some(self.inner_parser.parse_long_str(key, value)),
+                        KeyType::Int => Some(
+                            value
+                                .parse::<i64>()
+                                .map_err(|_| ParseError::invalid_key_type(key, value, ty).into())
+                                .and_then(|value| self.inner_parser.parse_long_int(key, value)),
+                        ),
+                        KeyType::UInt => Some(
+                            value
+                                .parse::<u64>()
+                                .map_err(|_| ParseError::invalid_key_type(key, value, ty).into())
+                                .and_then(|value| self.inner_parser.parse_long_uint(key, value)),
+                        ),
+                    }
+                }
+            }
+        } else if let Some(mut arg) = arg
+            .strip_prefix("-")
+            .filter(|v| !v.is_empty())
+            .map(|v| v.chars())
+        {
+            while let Some(key) = arg.next() {
+                let key_info = self.inner_parser.lookup_short(key);
+                match key_info {
+                    LookupKey::Unknown => {
+                        return Some(Err(ParseError::unknown_short_key(key).into()))
+                    }
+                    LookupKey::Single => {
+                        if let Err(e) = self.inner_parser.parse_short(key) {
+                            return Some(Err(e));
+                        }
+                    }
+                    LookupKey::RequireValue(ty) => {
+                        let value = match arg.as_str() {
+                            "" => {
+                                let Some(value) = self.raw_args.next() else {
+                                    return Some(Err(ParseError::expected_value_short(key).into()));
+                                };
+                                value
+                            }
+                            v => v,
+                        };
+
+                        match ty {
+                            KeyType::String => {
+                                return Some(self.inner_parser.parse_short_str(key, value))
+                            }
+                            KeyType::Int => {
+                                return Some(
+                                    value
+                                        .parse::<i64>()
+                                        .map_err(|_| {
+                                            ParseError::invalid_short_key_type(key, value, ty)
+                                                .into()
+                                        })
+                                        .and_then(|value| {
+                                            self.inner_parser.parse_short_int(key, value)
+                                        }),
+                                )
+                            }
+                            KeyType::UInt => {
+                                return Some(
+                                    value
+                                        .parse::<u64>()
+                                        .map_err(|_| {
+                                            ParseError::invalid_short_key_type(key, value, ty)
+                                                .into()
+                                        })
+                                        .and_then(|value| {
+                                            self.inner_parser.parse_short_uint(key, value)
+                                        }),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Some(Ok(()))
+        } else {
+            Some(self.parse_raw(arg))
+        }
+    }
+
+    pub fn parse_to_end(mut self) -> Result<T::Into, T::Error> {
+        while let Some(res) = self.parse_once() {
+            res?
+        }
+        self.inner_parser.parse_end()
     }
 }
