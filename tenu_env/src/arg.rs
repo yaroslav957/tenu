@@ -31,3 +31,9 @@ impl Arg {
         idx
     }
 }
+
+impl AsRef<str> for Arg {
+    fn as_ref(&self) -> &str {
+        self.as_str().unwrap_or_default()
+    }
+}
