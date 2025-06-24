@@ -1,5 +1,6 @@
 use core::str::Utf8Error;
 
+/// Wrapper around ptr to a null-terminated byte sequence.
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Arg {
@@ -7,28 +8,34 @@ pub struct Arg {
 }
 
 impl Arg {
-    ///
-    pub fn as_bytes(&self) -> &[u8] {
-        // SAFETY:
-        unsafe { core::slice::from_raw_parts(self.inner, self.len()) }
-    }
-
-    ///
-    pub fn as_str(&self) -> Result<&str, Utf8Error> {
-        core::str::from_utf8(self.as_bytes())
-    }
-
-    ///
+    /// Calculates the length of the byte sequence
+    /// by counting bytes until the null terminator.
     pub fn len(&self) -> usize {
         let ptr = self.inner;
         let mut idx = 0;
 
         // SAFETY:
+        // Dereferencing `ptr.add(idx)` is safe only if `inner` points
+        // to a valid, null-terminated sequence. Iteration stops at the null-byte.
         while unsafe { *ptr.add(idx) } != 0 {
             idx += 1;
         }
 
         idx
+    }
+
+    /// Returns a byte slice of the underlying data,
+    /// until the null-terminator.
+    pub fn as_bytes(&self) -> &[u8] {
+        // SAFETY:
+        // Relies on `inner` being valid and `len()` correctly computing the length
+        // to the null-terminator. The slice is constructed only up to the null-byte.
+        unsafe { core::slice::from_raw_parts(self.inner, self.len()) }
+    }
+
+    /// Try to onvert slice from `as_bytes` into a UTF-8 &str
+    pub fn as_str(&self) -> Result<&str, Utf8Error> {
+        core::str::from_utf8(self.as_bytes())
     }
 }
 

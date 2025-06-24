@@ -10,7 +10,7 @@ const OPTIONS: LookupTable = LookupTable(&[
 ]);
 
 fn main() {
-    let args = Env::args();
+    let _args = Env::args();
 
     // API:
     //

@@ -9,7 +9,7 @@ static mut ARGC: usize = 0;
 static mut ARGV: *const Arg = ptr::null_mut();
 
 #[used]
-// check some errors on libc::musl
+//TODO: check some errors on libc::musl
 #[cfg_attr(target_os = "macos", unsafe(link_section = "__DATA,__mod_init_func"))]
 #[cfg_attr(not(target_os = "macos"), unsafe(link_section = ".init_array"))]
 static __: unsafe extern "C" fn(c_int, *const *const c_char) = {
@@ -23,6 +23,7 @@ static __: unsafe extern "C" fn(c_int, *const *const c_char) = {
     capture
 };
 
+///
 pub struct Env;
 
 impl Env {
