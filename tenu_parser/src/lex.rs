@@ -18,8 +18,8 @@ pub enum ArgType {
     Option,
 }
 
-///                                      (Optional)              
-///               long name     type     short name
+///                                          (Optional)              
+///                   long name     type     short name
 pub type CliOption = (&'static str, ArgType, char);
 
 /// Since we need to know declared options in a parsing stage,
@@ -100,95 +100,10 @@ impl<'a> Parser<'a> {
             if let Some((_, '-')) = chars.peek() {
                 chars.next();
                 let option_name_start = chars.peek().map(|(i, _)| *i).unwrap(); // TODO
-
-                // Check for '=' for --option=value syntax
-                if let Some(eq_pos) = arg[option_name_start..].find('=') {
-                    let (name, value) = arg[option_name_start..].split_at(eq_pos);
-                    let value = &value[1..]; // skip '='
-
-                    if let Some(_) = self.table.lookup_long(name) {
-                        buffer.push(Token::Option(name, Some(value)));
-                        return Ok(());
-                    } else {
-                        return Err(Error::UnknownLongOption(name));
-                    }
-                }
-
                 let name = &arg[option_name_start..];
-
-                if let Some(opt) = self.table.lookup_long(name) {
-                    match opt.1 {
-                        ArgType::None => {
-                            buffer.push(Token::Option(name, None));
-                        }
-                        ArgType::Required => {
-                            let next = iter.next().copied().unwrap(); // TODO: Missing value
-                            buffer.push(Token::Option(name, Some(next)));
-                        }
-                        ArgType::Option => {
-                            let next = iter.peek().copied();
-                            if let Some(&next_val) = next {
-                                if !next_val.starts_with('-') {
-                                    buffer.push(Token::Option(name, Some(next_val)));
-                                    iter.next(); // consume value
-                                } else {
-                                    buffer.push(Token::Option(name, None));
-                                }
-                            } else {
-                                buffer.push(Token::Option(name, None));
-                            }
-                        }
-                    }
-                    return Ok(());
-                } else {
-                    return Err(Error::UnknownLongOption(name));
-                }
+                self.parse_long(name, iter, buffer)?;
             } else {
-                // Short options like -zov or -o value
-                while let Some((opt_start, c)) = chars.next() {
-                    if let Some(opt) = self.table.lookup_short(c) {
-                        match opt.1 {
-                            ArgType::None => {
-                                buffer.push(Token::Option(&opt.0, None));
-                            }
-                            ArgType::Required => {
-                                // Check if value is squeezed, e.g., -ofile
-                                if let Some((i, _)) = chars.peek().copied() {
-                                    let value = &arg[i..];
-                                    buffer.push(Token::Option(&opt.0, Some(value)));
-                                } else {
-                                    let next = iter.next().copied().unwrap(); // TODO
-                                    buffer.push(Token::Option(&opt.0, Some(next)));
-                                }
-
-                                return Ok(());
-                            }
-                            ArgType::Option => {
-                                if let Some((i, _)) = chars.peek().copied() {
-                                    let value = &arg[i..];
-                                    buffer.push(Token::Option(&opt.0, Some(value)));
-                                    return Ok(());
-                                } else {
-                                    let next = iter.peek().copied();
-                                    if let Some(&next_val) = next {
-                                        if !next_val.starts_with('-') {
-                                            buffer.push(Token::Option(&opt.0, Some(next_val)));
-                                            iter.next();
-                                        } else {
-                                            buffer.push(Token::Option(&opt.0, None));
-                                        }
-                                    } else {
-                                        buffer.push(Token::Option(&opt.0, None));
-                                    }
-                                }
-                                return Ok(());
-                            }
-                        }
-                    } else {
-                        return Err(Error::UnknownShortOption(&arg[opt_start..=opt_start])); // cringy
-                    }
-                }
-                return Ok(());
+                return self.parse_short(buffer, iter, arg, &mut chars);
             }
         }
 
@@ -196,4 +111,111 @@ impl<'a> Parser<'a> {
 
         Ok(())
     }
+
+    fn parse_long<I>(
+        &self,
+        arg: &'a str,
+        iter: &mut iter::Peekable<I>,
+        buffer: &mut Vec<Token<'a>>
+    ) -> Result<(), Error<'a>>
+    where
+        I: Iterator<Item = &'a &'a str>,
+    {
+        if let Some((name, value)) = arg.split_once('=') {
+            if let Some(_) = self.table.lookup_long(name) {
+                buffer.push(Token::Option(name, Some(value)));
+                return Ok(());
+            } else {
+                return Err(Error::UnknownLongOption(name));
+            }
+        }
+
+        if let Some(opt) = self.table.lookup_long(arg) {
+            buffer.push(Token::Option(arg, self.parse_opt_arg(&opt.1, iter)?));
+            return Ok(());
+        } else {
+            return Err(Error::UnknownLongOption(arg));
+        }
+    }
+
+    fn parse_opt_arg<I>(&self, ty: &ArgType, iter: &mut iter::Peekable<I>)
+        -> Result<Option<&'a str>, Error<'a>>
+    where
+        I: Iterator<Item = &'a &'a str>,
+    {
+        match ty {
+            ArgType::None => Ok(None),
+            ArgType::Required => if let Some(&next) = iter.next() {
+                Ok(Some(next))
+            } else {
+                Err(Error::MissingArg)
+            },
+            ArgType::Option => if let Some(&next) = iter.peek() {
+                if !next.starts_with('-') {
+                    iter.next(); // consume value
+                    Ok(Some(next))
+                } else {
+                    Ok(None)
+                }
+            } else {
+                Ok(None)
+            }
+        }
+    }
+
+    /// Short options like -zov or -o value
+    fn parse_short<I>(
+        &self,
+        buffer: &mut Vec<Token<'a>>,
+        iter: &mut iter::Peekable<I>,
+        arg: &'a str,
+        chars: &mut iter::Peekable<impl Iterator<Item = (usize, char)>>
+    ) -> Result<(), Error<'a>>
+    where
+        I: Iterator<Item = &'a &'a str>,
+    {
+        while let Some((opt_start, c)) = chars.next() {
+            if let Some(opt) = self.table.lookup_short(c) {
+                let opt_arg = match opt.1 {
+                    ArgType::None => None,
+                    ArgType::Required => {
+                        // Check if value is squeezed, e.g., -ofile
+                        if let Some(&(i, _)) = chars.peek() {
+                            Some(&arg[i..])
+                        } else {
+                            if let Some(next) = iter.next().copied() {
+                                Some(next)
+                            } else {
+                                return Err(Error::MissingArg)
+                            }
+                        }
+                    }
+                    ArgType::Option => {
+                        if let Some(&(i, _)) = chars.peek() {
+                            let value = &arg[i..];
+                            Some(value)
+                        } else {
+                            if let Some(&&next_val) = iter.peek() {
+                                if !next_val.starts_with('-') {
+                                    iter.next();
+                                    Some(next_val)
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        }
+                    }
+                };
+                buffer.push(Token::Option(&opt.0, opt_arg));
+                return Ok(())
+            } else {
+                return Err(Error::UnknownShortOption(&arg[opt_start..=opt_start])); // cringy
+            }
+        }
+
+        Ok(())
+    }
 }
+
