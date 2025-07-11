@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use core::iter;
+use core::iter::{self, Peekable};
 
 use crate::error::Error;
 
@@ -87,7 +87,7 @@ impl<'a> Parser<'a> {
         &self,
         buffer: &mut Vec<Token<'a>>,
         arg: &'a str,
-        iter: &mut iter::Peekable<I>,
+        iter: &mut Peekable<I>,
     ) -> Result<(), Error<'a>>
     where
         I: Iterator<Item = &'a &'a str>,
@@ -99,9 +99,11 @@ impl<'a> Parser<'a> {
 
             if let Some((_, '-')) = chars.peek() {
                 chars.next();
-                let option_name_start = chars.peek().map(|(i, _)| *i).unwrap(); // TODO
-                let name = &arg[option_name_start..];
-                self.parse_long(name, iter, buffer)?;
+                let option_name_start = chars
+                    .peek()
+                    .map(|(i, _)| *i)
+                    .unwrap(); // TODO
+                self.parse_long(&arg[option_name_start..], iter, buffer)?;
             } else {
                 return self.parse_short(buffer, iter, arg, &mut chars);
             }
@@ -115,7 +117,7 @@ impl<'a> Parser<'a> {
     fn parse_long<I>(
         &self,
         arg: &'a str,
-        iter: &mut iter::Peekable<I>,
+        iter: &mut Peekable<I>,
         buffer: &mut Vec<Token<'a>>
     ) -> Result<(), Error<'a>>
     where
@@ -138,7 +140,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_opt_arg<I>(&self, ty: &ArgType, iter: &mut iter::Peekable<I>)
+    fn parse_opt_arg<I>(&self, ty: &ArgType, iter: &mut Peekable<I>)
         -> Result<Option<&'a str>, Error<'a>>
     where
         I: Iterator<Item = &'a &'a str>,
@@ -167,9 +169,9 @@ impl<'a> Parser<'a> {
     fn parse_short<I>(
         &self,
         buffer: &mut Vec<Token<'a>>,
-        iter: &mut iter::Peekable<I>,
+        iter: &mut Peekable<I>,
         arg: &'a str,
-        chars: &mut iter::Peekable<impl Iterator<Item = (usize, char)>>
+        chars: &mut Peekable<impl Iterator<Item = (usize, char)>>
     ) -> Result<(), Error<'a>>
     where
         I: Iterator<Item = &'a &'a str>,
@@ -183,25 +185,19 @@ impl<'a> Parser<'a> {
                         if let Some(&(i, _)) = chars.peek() {
                             Some(&arg[i..])
                         } else {
-                            if let Some(next) = iter.next().copied() {
-                                Some(next)
-                            } else {
-                                return Err(Error::MissingArg)
-                            }
+                            Some(
+                                iter.next()
+                                    .copied()
+                                    .ok_or(Error::MissingArg)?
+                            )
                         }
                     }
                     ArgType::Option => {
                         if let Some(&(i, _)) = chars.peek() {
-                            let value = &arg[i..];
-                            Some(value)
+                            Some(&arg[i..])
                         } else {
-                            if let Some(&&next_val) = iter.peek() {
-                                if !next_val.starts_with('-') {
-                                    iter.next();
-                                    Some(next_val)
-                                } else {
-                                    None
-                                }
+                            if iter.peek().is_some_and(|&&val| !val.starts_with('-')) {
+                                Some(*iter.next().unwrap())
                             } else {
                                 None
                             }
