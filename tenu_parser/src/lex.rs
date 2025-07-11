@@ -39,19 +39,13 @@ impl LookupTable {
     }
 }
 
-// pub struct Parser<'a, T: AsRef<str>> {
-//    src: &'a [T],
-//    table: LookupTable,
-//    is_raw: bool,
-// }
-pub struct Parser<'a, T: AsRef<str>> {
+pub struct Parser<'a, T> {
     src: &'a [T],
     table: LookupTable,
     is_raw: bool,
 }
 
 impl<'a, T: AsRef<str>> Parser<'a, T> {
-    //         src: &'a [T]
     pub fn new(src: &'a [T], table: LookupTable) -> Self {
         Self {
             src,
@@ -60,7 +54,6 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
         }
     }
 
-    // и тут уже делаешь с &'a [T]
     pub fn parse(&mut self) -> Result<Vec<Token<'a>>, Error> {
         let mut buffer = Vec::new();
         let mut iter = self.src
@@ -85,7 +78,7 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
         Ok(buffer)
     }
 
-    // TODO: 1. write tests 2. refactoring
+    // TODO: 1. write tests
     fn parse_arg<I>(
         &self,
         buffer: &mut Vec<Token<'a>>,
@@ -209,7 +202,6 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
                     }
                 };
                 buffer.push(Token::Option(&opt.0, opt_arg));
-                return Ok(())
             } else {
                 return Err(Error::UnknownShortOption(&arg[opt_start..=opt_start])); // cringy
             }
@@ -218,4 +210,3 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
         Ok(())
     }
 }
-
