@@ -63,20 +63,23 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
     // и тут уже делаешь с &'a [T]
     pub fn parse(&mut self) -> Result<Vec<Token<'a>>, Error> {
         let mut buffer = Vec::new();
-        let mut iter = self.src.iter().peekable();
+        let mut iter = self.src
+            .iter()
+            .map(T::as_ref)
+            .peekable();
 
         while let Some(arg) = iter.next() {
-            if !self.is_raw && arg.as_ref() == "--" {
+            if !self.is_raw && arg == "--" {
                 self.is_raw = true;
                 continue;
             }
 
             if self.is_raw {
-                buffer.push(Token::Value(arg.as_ref()));
+                buffer.push(Token::Value(arg));
                 continue;
             }
 
-            self.parse_arg(&mut buffer, arg.as_ref(), &mut iter)?;
+            self.parse_arg(&mut buffer, arg, &mut iter)?;
         }
 
         Ok(buffer)
@@ -90,7 +93,7 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
         iter: &mut Peekable<I>,
     ) -> Result<(), Error<'a>>
     where
-        I: Iterator<Item = &'a T>,
+        I: Iterator<Item = &'a str>,
     {
         let mut chars = arg.char_indices().peekable();
 
@@ -121,7 +124,7 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
         buffer: &mut Vec<Token<'a>>
     ) -> Result<(), Error<'a>>
     where
-        I: Iterator<Item = &'a T>,
+        I: Iterator<Item = &'a str>,
     {
         if let Some((name, value)) = arg.split_once('=') {
             if let Some(_) = self.table.lookup_long(name) {
@@ -136,7 +139,6 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
             buffer.push(Token::Option(
                 arg,
                 self.parse_opt_arg(&opt.1, iter)?
-                    .map(AsRef::as_ref)
             ));
             return Ok(());
         } else {
@@ -145,9 +147,9 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
     }
 
     fn parse_opt_arg<I>(&self, ty: &ArgType, iter: &mut Peekable<I>)
-        -> Result<Option<&'a T>, Error<'a>>
+        -> Result<Option<&'a str>, Error<'a>>
     where
-        I: Iterator<Item = &'a T>,
+        I: Iterator<Item = &'a str>,
     {
         match ty {
             ArgType::None => Ok(None),
@@ -157,7 +159,7 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
                 Err(Error::MissingArg)
             },
             ArgType::Option => if let Some(&next) = iter.peek() {
-                if !next.as_ref().starts_with('-') {
+                if !next.starts_with('-') {
                     iter.next(); // consume value
                     Ok(Some(next))
                 } else {
@@ -178,7 +180,7 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
         chars: &mut Peekable<impl Iterator<Item = (usize, char)>>
     ) -> Result<(), Error<'a>>
     where
-        I: Iterator<Item = &'a T>,
+        I: Iterator<Item = &'a str>,
     {
         while let Some((opt_start, c)) = chars.next() {
             if let Some(opt) = self.table.lookup_short(c) {
@@ -190,9 +192,7 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
                             Some(&arg[i..])
                         } else {
                             Some(
-                                iter.next()
-                                    .map(AsRef::as_ref)
-                                    .ok_or(Error::MissingArg)?
+                                iter.next().ok_or(Error::MissingArg)?
                             )
                         }
                     }
@@ -200,8 +200,8 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
                         if let Some(&(i, _)) = chars.peek() {
                             Some(&arg[i..])
                         } else {
-                            if iter.peek().is_some_and(|&val| !val.as_ref().starts_with('-')) {
-                                Some(iter.next().map(AsRef::as_ref).unwrap())
+                            if iter.peek().is_some_and(|&val| !val.starts_with('-')) {
+                                Some(iter.next().unwrap())
                             } else {
                                 None
                             }
