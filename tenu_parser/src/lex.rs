@@ -44,15 +44,15 @@ impl LookupTable {
 //    table: LookupTable,
 //    is_raw: bool,
 // }
-pub struct Parser<'a> {
-    src: &'a [&'a str],
+pub struct Parser<'a, T: AsRef<str>> {
+    src: &'a [T],
     table: LookupTable,
     is_raw: bool,
 }
 
-impl<'a> Parser<'a> {
+impl<'a, T: AsRef<str>> Parser<'a, T> {
     //         src: &'a [T]
-    pub fn new(src: &'a [&'a str], table: LookupTable) -> Self {
+    pub fn new(src: &'a [T], table: LookupTable) -> Self {
         Self {
             src,
             table,
@@ -65,18 +65,18 @@ impl<'a> Parser<'a> {
         let mut buffer = Vec::new();
         let mut iter = self.src.iter().peekable();
 
-        while let Some(&arg) = iter.next() {
-            if !self.is_raw && arg == "--" {
+        while let Some(arg) = iter.next() {
+            if !self.is_raw && arg.as_ref() == "--" {
                 self.is_raw = true;
                 continue;
             }
 
             if self.is_raw {
-                buffer.push(Token::Value(arg));
+                buffer.push(Token::Value(arg.as_ref()));
                 continue;
             }
 
-            self.parse_arg(&mut buffer, arg, &mut iter)?;
+            self.parse_arg(&mut buffer, arg.as_ref(), &mut iter)?;
         }
 
         Ok(buffer)
@@ -90,7 +90,7 @@ impl<'a> Parser<'a> {
         iter: &mut Peekable<I>,
     ) -> Result<(), Error<'a>>
     where
-        I: Iterator<Item = &'a &'a str>,
+        I: Iterator<Item = &'a T>,
     {
         let mut chars = arg.char_indices().peekable();
 
@@ -121,7 +121,7 @@ impl<'a> Parser<'a> {
         buffer: &mut Vec<Token<'a>>
     ) -> Result<(), Error<'a>>
     where
-        I: Iterator<Item = &'a &'a str>,
+        I: Iterator<Item = &'a T>,
     {
         if let Some((name, value)) = arg.split_once('=') {
             if let Some(_) = self.table.lookup_long(name) {
@@ -133,7 +133,11 @@ impl<'a> Parser<'a> {
         }
 
         if let Some(opt) = self.table.lookup_long(arg) {
-            buffer.push(Token::Option(arg, self.parse_opt_arg(&opt.1, iter)?));
+            buffer.push(Token::Option(
+                arg,
+                self.parse_opt_arg(&opt.1, iter)?
+                    .map(AsRef::as_ref)
+            ));
             return Ok(());
         } else {
             return Err(Error::UnknownLongOption(arg));
@@ -141,19 +145,19 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_opt_arg<I>(&self, ty: &ArgType, iter: &mut Peekable<I>)
-        -> Result<Option<&'a str>, Error<'a>>
+        -> Result<Option<&'a T>, Error<'a>>
     where
-        I: Iterator<Item = &'a &'a str>,
+        I: Iterator<Item = &'a T>,
     {
         match ty {
             ArgType::None => Ok(None),
-            ArgType::Required => if let Some(&next) = iter.next() {
+            ArgType::Required => if let Some(next) = iter.next() {
                 Ok(Some(next))
             } else {
                 Err(Error::MissingArg)
             },
             ArgType::Option => if let Some(&next) = iter.peek() {
-                if !next.starts_with('-') {
+                if !next.as_ref().starts_with('-') {
                     iter.next(); // consume value
                     Ok(Some(next))
                 } else {
@@ -174,7 +178,7 @@ impl<'a> Parser<'a> {
         chars: &mut Peekable<impl Iterator<Item = (usize, char)>>
     ) -> Result<(), Error<'a>>
     where
-        I: Iterator<Item = &'a &'a str>,
+        I: Iterator<Item = &'a T>,
     {
         while let Some((opt_start, c)) = chars.next() {
             if let Some(opt) = self.table.lookup_short(c) {
@@ -187,7 +191,7 @@ impl<'a> Parser<'a> {
                         } else {
                             Some(
                                 iter.next()
-                                    .copied()
+                                    .map(AsRef::as_ref)
                                     .ok_or(Error::MissingArg)?
                             )
                         }
@@ -196,8 +200,8 @@ impl<'a> Parser<'a> {
                         if let Some(&(i, _)) = chars.peek() {
                             Some(&arg[i..])
                         } else {
-                            if iter.peek().is_some_and(|&&val| !val.starts_with('-')) {
-                                Some(*iter.next().unwrap())
+                            if iter.peek().is_some_and(|&val| !val.as_ref().starts_with('-')) {
+                                Some(iter.next().map(AsRef::as_ref).unwrap())
                             } else {
                                 None
                             }
