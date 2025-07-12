@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use core::iter::{self, Peekable};
+use core::iter::Peekable;
 
 use crate::error::Error;
 
@@ -99,7 +99,7 @@ impl<'a, T: AsRef<str>> Parser<'a, T> {
                     .peek()
                     .map(|(i, _)| *i)
                     .unwrap(); // TODO
-                self.parse_long(&arg[option_name_start..], iter, buffer)?;
+                return self.parse_long(&arg[option_name_start..], iter, buffer);
             } else {
                 return self.parse_short(buffer, iter, arg, &mut chars);
             }
