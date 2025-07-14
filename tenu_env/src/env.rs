@@ -24,11 +24,7 @@ static __: unsafe extern "C" fn(c_int, *const *const c_char) = {
 };
 
 ///
-pub struct Env;
-
-impl Env {
-    pub fn args() -> &'static [Arg] {
-        // SAFETY:
-        unsafe { slice::from_raw_parts(ARGV, ARGC as usize) }
-    }
+pub fn args() -> &'static [Arg] {
+    // SAFETY:
+    unsafe { slice::from_raw_parts(ARGV, ARGC as usize) }
 }

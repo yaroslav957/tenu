@@ -1,5 +1,5 @@
 use tenu::{
-    Env,
+    args,
     lex::{ArgType, LookupTable, Parser},
 };
 
@@ -11,23 +11,23 @@ const OPTIONS: LookupTable = LookupTable(&[
 ]);
 
 fn main() {
-    let _args = Env::args();
+    let _args = tenu::args();
 
     // API:
     //
     let mut parser = Parser::new(_args, OPTIONS);
-//    let mut parser = Parser::new(
-//        &[
-//            "-hlv",
-//            "-ohedgeberry-s-mother.jpg",
-//            "-v",
-//            "log.txt",
-//            "l420.txt",
-//            "--",
-//            "--zov",
-//        ],
-//        OPTIONS,
-//    );
+    //    let mut parser = Parser::new(
+    //        &[
+    //            "-hlv",
+    //            "-ohedgeberry-s-mother.jpg",
+    //            "-v",
+    //            "log.txt",
+    //            "l420.txt",
+    //            "--",
+    //            "--zov",
+    //        ],
+    //        OPTIONS,
+    //    );
 
     dbg!(parser.parse().unwrap());
 }
