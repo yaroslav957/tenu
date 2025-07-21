@@ -4,7 +4,7 @@ use core::str::Utf8Error;
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Arg {
-    pub(crate) inner: *const u8,
+    inner: *const u8,
 }
 
 impl Arg {
@@ -36,11 +36,5 @@ impl Arg {
     /// Try to onvert slice from `as_bytes` into a UTF-8 &str
     pub fn as_str(&self) -> Result<&str, Utf8Error> {
         core::str::from_utf8(self.as_bytes())
-    }
-}
-
-impl AsRef<str> for Arg {
-    fn as_ref(&self) -> &str {
-        self.as_str().unwrap_or_default()
     }
 }

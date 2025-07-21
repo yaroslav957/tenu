@@ -10,24 +10,4 @@ const OPTIONS: LookupTable = LookupTable(&[
     ("verbose", ArgType::Option, 'v'),
 ]);
 
-fn main() {
-    let _args = tenu::args();
-
-    // API:
-    //
-    let mut parser = Parser::new(_args, OPTIONS);
-    //    let mut parser = Parser::new(
-    //        &[
-    //            "-hlv",
-    //            "-ohedgeberry-s-mother.jpg",
-    //            "-v",
-    //            "log.txt",
-    //            "l420.txt",
-    //            "--",
-    //            "--zov",
-    //        ],
-    //        OPTIONS,
-    //    );
-
-    dbg!(parser.parse().unwrap());
-}
+fn main() {}

@@ -4,7 +4,7 @@
 #![forbid(clippy::undocumented_unsafe_blocks)]
 
 mod arg;
-mod env;
+mod args;
 
 pub use crate::arg::*;
-pub use crate::env::*;
+pub use crate::args::*;
