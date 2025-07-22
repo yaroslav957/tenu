@@ -2,4 +2,4 @@
 
 #![cfg(feature = "builder")]
 pub use builder::*;
-pub use parser::*;
+pub use parse::*;

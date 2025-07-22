@@ -1,13 +1,14 @@
 use crate::Arg;
 
+///
 pub struct Args {
     inner: &'static [Arg],
 }
-impl Args {
-    pub fn from(argc: isize, argv: *const *const u8) -> Self {
-        let argc = argc as usize;
-        let argv = argv as *const Arg;
 
+impl Args {
+    ///
+    pub fn from_raw(argc: usize, argv: *const Arg) -> Self {
+        //SAFETY:
         let inner = unsafe { core::slice::from_raw_parts(argv, argc) };
 
         Self { inner }
