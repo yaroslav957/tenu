@@ -1,12 +1,10 @@
-use core::ffi::{c_char, c_int};
-
 use crate::Arg;
 
 pub struct Args {
     inner: &'static [Arg],
 }
 impl Args {
-    pub(crate) fn from_raw(argc: c_int, argv: *const *const c_char) -> Self {
+    pub fn from(argc: isize, argv: *const *const u8) -> Self {
         let argc = argc as usize;
         let argv = argv as *const Arg;
 
