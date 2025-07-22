@@ -1,5 +1,5 @@
 [workspace]
-members = ["tenu_builder", "tenu_parser", "tests"]
+members = ["builder", "parser", "tests"]
 resolver = "2"
 
 [workspace.package]
@@ -27,11 +27,11 @@ strip = "symbols"
 panic = "abort"
 
 [dependencies]
-tenu_parser = { path = "tenu_parser" }
-tenu_builder = { path = "tenu_builder", optional = true }
+parser = { path = "parser" }
+builder = { path = "builder", optional = true }
 
 [dev-dependencies]
 tests = { path = "tests" }
 
 [features]
-builder = ["dep:tenu_builder"]
+builder = ["dep:builder"]
