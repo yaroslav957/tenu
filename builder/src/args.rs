@@ -6,7 +6,6 @@ pub struct Args {
     inner: &'static [Arg],
 }
 impl Args {
-    // no need to do this function unsafe cuz it will be pub(crate)
     pub(crate) fn from_raw(argc: c_int, argv: *const *const c_char) -> Self {
         let argc = argc as usize;
         let argv = argv as *const Arg;
