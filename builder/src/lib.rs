@@ -1,5 +1,5 @@
 #![no_std]
-//#![deny(unused)]
+#![deny(unused)]
 #![allow(unused_macros)]
 #![forbid(unstable_features)]
 #![forbid(clippy::undocumented_unsafe_blocks)]
@@ -8,10 +8,12 @@
 macro_rules! entry {
     (
         $(#[$meta:meta])*
-        pub fn main(args: Args) -> i32 $body:block
+        pub fn main($args:ident: Args) -> i32 $body:block
     ) => {
         $(#[$meta])*
-        pub fn main(args: Args) -> i32 $body
+        pub fn main($args: Args) -> i32 {
+            $body
+        }
 
         #[unsafe(no_mangle)]
         pub extern "C" fn entry(stack: *const u8) -> i32 {
