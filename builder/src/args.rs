@@ -6,8 +6,8 @@ pub struct Args {
 }
 
 impl Args {
-    ///
-    pub fn from_raw(argc: usize, argv: *const Arg) -> Self {
+    //
+    pub unsafe fn from_raw(argc: usize, argv: *const Arg) -> Self {
         //SAFETY:
         let inner = unsafe { core::slice::from_raw_parts(argv, argc) };
 

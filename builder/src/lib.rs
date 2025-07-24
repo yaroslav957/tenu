@@ -1,6 +1,5 @@
 #![no_std]
-#![deny(unused)]
-#![allow(unused_macros)]
+#![forbid(unused)]
 #![forbid(unstable_features)]
 #![forbid(clippy::undocumented_unsafe_blocks)]
 
@@ -22,7 +21,8 @@ macro_rules! entry {
             let argc = unsafe { *(stack) as usize };
             //SAFETY:
             let argv = unsafe { stack.offset(8) as *const Arg };
-            let args = Args::from_raw(argc, argv);
+            //SAFETY:
+            let args = unsafe { Args::from_raw(argc, argv) };
 
             main(args)
         }

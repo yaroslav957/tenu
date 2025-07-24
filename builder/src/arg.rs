@@ -24,6 +24,11 @@ impl Arg {
         idx
     }
 
+    /// Checks the length of the byte sequence
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Returns a byte slice of the underlying data,
     /// until the null-terminator.
     pub fn as_bytes(&self) -> &[u8] {
