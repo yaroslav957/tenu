@@ -1,7 +1,7 @@
 use core::str::Utf8Error;
 
 /// Wrapper around ptr to a null-terminated byte sequence.
-#[derive(Copy, Clone)]
+#[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct Arg {
     inner: *const u8,
