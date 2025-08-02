@@ -14,7 +14,7 @@ pub enum Error<'a> {
     MissingArgValue,
     DuplicatedArg,
     UnknownLongOption(&'a str),
-    UnknownShortOption(&'a str),
+    UnknownShortOption(char),
     ParseError(ParserError),
 }
 
