@@ -5,7 +5,7 @@
 
 use core::{error, fmt, result, str::Utf8Error};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Error<'a> {
     InvalidValue,
@@ -19,7 +19,7 @@ pub enum Error<'a> {
 }
 
 /// 'static, cuz arg has 'static lifetime
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ParserError {
     IntParse(&'static str),
     StrParse(&'static str),

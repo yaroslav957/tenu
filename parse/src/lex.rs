@@ -1,9 +1,10 @@
-use crate::cursor::FlatCursor;
+use crate::{cursor::FlatCursor, error::Error};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token<'a> {
     Option(&'a str, Option<&'a str>),
     Value(&'a str),
+    Error(Error<'a>)
 }
 
 pub enum ArgType {
@@ -15,7 +16,6 @@ pub enum ArgType {
     Option,
 }
 
-///                                          (Optional)              
 ///                   long name     type     short name
 pub type CliOption = (&'static str, ArgType, char);
 
@@ -73,17 +73,26 @@ where
             Some(_) => {
                 self.state = ParseState::Short { maybe_long: false };
                 let opt = self.src.next()?;
+
                 if let Some((name, ty, _)) = self.table.lookup_short(opt) {
                     match ty {
-                        ArgType::None => Some(Token::Option(&name, None)),
+                        ArgType::None => {
+                            Some(Token::Option(&name, None))
+                        },
                         ArgType::Required | ArgType::Option => {
+                            self.state = ParseState::None;
                             // TODO: Handle required value missing
-                            Some(Token::Option(&name, self.src.next_str()))
+                            match self.src.next_str() {
+                                // No value squeezed
+                                Some("") => Some(Token::Option(&name, self.src.next_str())),
+                                val => Some(Token::Option(&name, val))
+                            }
                         }
                     }
                 } else {
-                    todo!()
+                    panic!("Unknown short option: {opt}") // Unknown short option
                 }
+
             }
             _ => None
         }
@@ -91,28 +100,29 @@ where
     
     fn parse_long(&mut self) -> Option<Token<'a>> {
         let raw_arg = self.src.next_str().unwrap_or_default();
-
         let (key, val) = match raw_arg.split_once('=') {
             Some((key, val)) => (key, Some(val)),
             _ => (raw_arg, None)
         };
 
-        if let Some((_, ty, _)) = self.table.lookup_long(raw_arg) {
+        if let Some((_, ty, _)) = self.table.lookup_long(key) {
             match ty {
-                ArgType::None => self.state = ParseState::None,
                 ArgType::Required => {
                     if val.is_none() {
                         todo!() // Тут надо высрать ошибку
                     }
                 }
-                ArgType::Option => {}
+                _ => {}
             }
         }
+
+        self.state = ParseState::None;
 
         Some(Token::Option(key, val))
     }
     
     fn parse_value(&mut self) -> Option<Token<'a>> {
+        self.state = ParseState::None;
         Some(Token::Value(self.src.next_str().unwrap_or_default()))
     }
 }
@@ -150,7 +160,76 @@ where
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+
     use crate::lex::{ArgType, LookupTable, Parser, Token};
+
+    #[test]
+    fn example() {
+        let args = [
+            "./myprogram",
+            "-hv",
+            "-ohedgeberry-s-mother.jpg",
+            "-v",
+            "log.txt",
+            "l420.txt",
+        ]
+        .into_iter();
+        let parser = Parser::new(args, LookupTable(&[
+            ("output", ArgType::Required, 'o'),
+            ("help", ArgType::None, 'h'),
+            ("verbose", ArgType::None, 'v')
+        ]));
+        assert_eq!(
+            Vec::from([
+                Token::Value("./myprogram"),
+                Token::Option("help", None),
+                Token::Option("verbose", None),
+                Token::Option("output", Some("hedgeberry-s-mother.jpg")),
+                Token::Option("verbose", None),
+                Token::Value("log.txt"),
+                Token::Value("l420.txt"),
+            ]),
+            parser.collect::<Vec<_>>()
+        )
+    }
+
+    #[test]
+    fn mixed() {
+        let args = [
+            "test",
+            "-ohedgeberry-s-mother.jpg",
+            "-v",
+            "log.txt",
+        ]
+        .into_iter();
+        let parser = Parser::new(args, LookupTable(&[
+            ("output", ArgType::Required, 'o'),
+            ("help", ArgType::None, 'h'),
+            ("verbose", ArgType::None, 'v')
+        ]));
+        assert_eq!(
+            Vec::from([
+                Token::Value("test"),
+                Token::Option("output", Some("hedgeberry-s-mother.jpg")),
+                Token::Option("verbose", None),
+                Token::Value("log.txt"),
+            ]),
+            parser.collect::<Vec<_>>()
+        )
+    }
+
+    #[test]
+    fn short_option_value_mixed() {
+        let args = ["-v", "log.txt"].iter().copied();
+        let mut parser = Parser::new(args, LookupTable(&[
+            ("verbose", ArgType::None, 'v')
+        ]));
+
+        assert_eq!(parser.next(), Some(Token::Option("verbose", None)));
+        assert_eq!(parser.next(), Some(Token::Value("log.txt")));
+        assert_eq!(parser.next(), None);
+    }
 
     #[test]
     fn short_option_dummy() {
@@ -164,6 +243,16 @@ mod tests {
 
     #[test]
     fn short_with_required_value() {
+        let args = ["-o", "hedgeberry-s-mother.jpg"].into_iter();
+        let mut parser = Parser::new(args, LookupTable(&[
+            ("output", ArgType::Required, 'o'),
+            ("help", ArgType::None, 'h')
+        ]));
+        assert_eq!(parser.next(), Some(Token::Option("output", Some("hedgeberry-s-mother.jpg"))));
+    }
+
+    #[test]
+    fn short_with_required_value_squeezed() {
         let args = ["-ohedgeberry-s-mother.jpg"].into_iter();
         let mut parser = Parser::new(args, LookupTable(&[
             ("output", ArgType::Required, 'o'),
