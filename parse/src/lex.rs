@@ -1,9 +1,6 @@
-use alloc::vec::Vec;
-use core::iter::Peekable;
+use crate::cursor::FlatCursor;
 
-use crate::error::Error;
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Token<'a> {
     Option(&'a str, Option<&'a str>),
     Value(&'a str),
@@ -39,174 +36,206 @@ impl LookupTable {
     }
 }
 
-pub struct Parser<'a, T> {
-    src: &'a [T],
-    table: LookupTable,
-    is_raw: bool,
+pub enum ParseState {
+    Short {
+        maybe_long: bool
+    },
+    Long,
+    Value,
+    None,
 }
 
-impl<'a, T: AsRef<str>> Parser<'a, T> {
-    pub fn new(src: &'a [T], table: LookupTable) -> Self {
+pub struct Parser<'a, I: Iterator> {
+    src: FlatCursor<'a, I>,
+    table: LookupTable,
+    state: ParseState
+}
+
+impl<'a, I> Parser<'a, I>
+where 
+    I: Iterator<Item = &'a str>
+{
+    pub fn new(src: I, table: LookupTable) -> Self {
         Self {
-            src,
+            src: FlatCursor::new(src),
             table,
-            is_raw: false,
+            state: ParseState::None
         }
     }
-
-    pub fn parse(&mut self) -> Result<Vec<Token<'a>>, Error> {
-        let mut buffer = Vec::new();
-        let mut iter = self.src
-            .iter()
-            .map(T::as_ref)
-            .peekable();
-
-        while let Some(arg) = iter.next() {
-            if !self.is_raw && arg == "--" {
-                self.is_raw = true;
-                continue;
+    
+    fn parse_short(&mut self) -> Option<Token<'a>> {
+        match self.src.peek() {
+            Some('-') if matches!(self.state, ParseState::Short { maybe_long: true }) => {
+                self.src.next();
+                self.state = ParseState::Long;
+                self.next()
             }
-
-            if self.is_raw {
-                buffer.push(Token::Value(arg));
-                continue;
-            }
-
-            self.parse_arg(&mut buffer, arg, &mut iter)?;
-        }
-
-        Ok(buffer)
-    }
-
-    // TODO: 1. write tests
-    fn parse_arg<I>(
-        &self,
-        buffer: &mut Vec<Token<'a>>,
-        arg: &'a str,
-        iter: &mut Peekable<I>,
-    ) -> Result<(), Error<'a>>
-    where
-        I: Iterator<Item = &'a str>,
-    {
-        let mut chars = arg.char_indices().peekable();
-
-        if let Some((_, '-')) = chars.peek() {
-            chars.next();
-
-            if let Some((_, '-')) = chars.peek() {
-                chars.next();
-                let option_name_start = chars
-                    .peek()
-                    .map(|(i, _)| *i)
-                    .unwrap(); // TODO
-                return self.parse_long(&arg[option_name_start..], iter, buffer);
-            } else {
-                return self.parse_short(buffer, iter, arg, &mut chars);
-            }
-        }
-
-        buffer.push(Token::Value(arg));
-
-        Ok(())
-    }
-
-    fn parse_long<I>(
-        &self,
-        arg: &'a str,
-        iter: &mut Peekable<I>,
-        buffer: &mut Vec<Token<'a>>
-    ) -> Result<(), Error<'a>>
-    where
-        I: Iterator<Item = &'a str>,
-    {
-        if let Some((name, value)) = arg.split_once('=') {
-            if let Some(_) = self.table.lookup_long(name) {
-                buffer.push(Token::Option(name, Some(value)));
-                return Ok(());
-            } else {
-                return Err(Error::UnknownLongOption(name));
-            }
-        }
-
-        if let Some(opt) = self.table.lookup_long(arg) {
-            buffer.push(Token::Option(
-                arg,
-                self.parse_opt_arg(&opt.1, iter)?
-            ));
-            return Ok(());
-        } else {
-            return Err(Error::UnknownLongOption(arg));
-        }
-    }
-
-    fn parse_opt_arg<I>(&self, ty: &ArgType, iter: &mut Peekable<I>)
-        -> Result<Option<&'a str>, Error<'a>>
-    where
-        I: Iterator<Item = &'a str>,
-    {
-        match ty {
-            ArgType::None => Ok(None),
-            ArgType::Required => if let Some(next) = iter.next() {
-                Ok(Some(next))
-            } else {
-                Err(Error::MissingArg)
-            },
-            ArgType::Option => if let Some(&next) = iter.peek() {
-                if !next.starts_with('-') {
-                    iter.next(); // consume value
-                    Ok(Some(next))
+            Some(_) => {
+                self.state = ParseState::Short { maybe_long: false };
+                let opt = self.src.next()?;
+                if let Some((name, ty, _)) = self.table.lookup_short(opt) {
+                    match ty {
+                        ArgType::None => Some(Token::Option(&name, None)),
+                        ArgType::Required | ArgType::Option => {
+                            // TODO: Handle required value missing
+                            Some(Token::Option(&name, self.src.next_str()))
+                        }
+                    }
                 } else {
-                    Ok(None)
+                    todo!()
                 }
-            } else {
-                Ok(None)
             }
+            _ => None
         }
     }
+    
+    fn parse_long(&mut self) -> Option<Token<'a>> {
+        let raw_arg = self.src.next_str().unwrap_or_default();
 
-    /// Short options like -zov or -o value
-    fn parse_short<I>(
-        &self,
-        buffer: &mut Vec<Token<'a>>,
-        iter: &mut Peekable<I>,
-        arg: &'a str,
-        chars: &mut Peekable<impl Iterator<Item = (usize, char)>>
-    ) -> Result<(), Error<'a>>
-    where
-        I: Iterator<Item = &'a str>,
-    {
-        while let Some((opt_start, c)) = chars.next() {
-            if let Some(opt) = self.table.lookup_short(c) {
-                let opt_arg = match opt.1 {
-                    ArgType::None => None,
-                    ArgType::Required => {
-                        // Check if value is squeezed, e.g., -ofile
-                        if let Some(&(i, _)) = chars.peek() {
-                            Some(&arg[i..])
-                        } else {
-                            Some(
-                                iter.next().ok_or(Error::MissingArg)?
-                            )
-                        }
+        let (key, val) = match raw_arg.split_once('=') {
+            Some((key, val)) => (key, Some(val)),
+            _ => (raw_arg, None)
+        };
+
+        if let Some((_, ty, _)) = self.table.lookup_long(raw_arg) {
+            match ty {
+                ArgType::None => self.state = ParseState::None,
+                ArgType::Required => {
+                    if val.is_none() {
+                        todo!() // Тут надо высрать ошибку
                     }
-                    ArgType::Option => {
-                        if let Some(&(i, _)) = chars.peek() {
-                            Some(&arg[i..])
-                        } else {
-                            if iter.peek().is_some_and(|&val| !val.starts_with('-')) {
-                                Some(iter.next().unwrap())
-                            } else {
-                                None
-                            }
-                        }
-                    }
-                };
-                buffer.push(Token::Option(&opt.0, opt_arg));
-            } else {
-                return Err(Error::UnknownShortOption(&arg[opt_start..=opt_start])); // cringy
+                }
+                ArgType::Option => {}
             }
         }
 
-        Ok(())
+        Some(Token::Option(key, val))
+    }
+    
+    fn parse_value(&mut self) -> Option<Token<'a>> {
+        Some(Token::Value(self.src.next_str().unwrap_or_default()))
+    }
+}
+
+impl<'a, I> Iterator for Parser<'a, I>
+where 
+    I: Iterator<Item = &'a str>
+{
+    type Item = Token<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.state {
+            ParseState::None => {
+                match self.src.peek() {
+                    Some('-') => {
+                        self.src.next();
+                        self.state = ParseState::Short {
+                            maybe_long: true
+                        };
+                        self.next()
+                    }
+                    Some(_) => {
+                        self.state = ParseState::Value;
+                        self.next()
+                    }
+                    _ => None
+                }
+            }
+            ParseState::Short { .. } => self.parse_short(),
+            ParseState::Long => self.parse_long(),
+            ParseState::Value => self.parse_value(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::lex::{ArgType, LookupTable, Parser, Token};
+
+    #[test]
+    fn short_option_dummy() {
+        let args = ["-o-h"].into_iter();
+        let mut parser = Parser::new(args, LookupTable(&[
+            ("output", ArgType::Required, 'o'),
+            ("help", ArgType::None, 'h')
+        ]));
+        assert_eq!(parser.next(), Some(Token::Option("output", Some("-h"))));
+    }
+
+    #[test]
+    fn short_with_required_value() {
+        let args = ["-ohedgeberry-s-mother.jpg"].into_iter();
+        let mut parser = Parser::new(args, LookupTable(&[
+            ("output", ArgType::Required, 'o'),
+            ("help", ArgType::None, 'h')
+        ]));
+        assert_eq!(parser.next(), Some(Token::Option("output", Some("hedgeberry-s-mother.jpg"))));
+    }
+
+    #[test]
+    fn short_squeezed() {
+        let args = ["-hlv"].into_iter();
+        let mut parser = Parser::new(args, LookupTable(&[
+            ("help",    ArgType::None, 'h'),
+            ("list",    ArgType::None, 'l'),
+            ("version", ArgType::None, 'v'),
+        ]));
+        assert_eq!(parser.next(), Some(Token::Option("help", None)));
+        assert_eq!(parser.next(), Some(Token::Option("list", None)));
+        assert_eq!(parser.next(), Some(Token::Option("version", None)));
+    }
+
+    #[test]
+    fn short_without_value() {
+        let args = ["-h"].into_iter();
+        let mut parser = Parser::new(args, LookupTable(&[
+            ("hello", ArgType::None, 'h')
+        ]));
+        assert_eq!(parser.next(), Some(Token::Option("hello", None)));
+    }
+
+    #[test]
+    fn long_with_optional_value() {
+        let args = ["--hello=world"].into_iter();
+        let mut parser = Parser::new(args, LookupTable(&[
+            ("hello", ArgType::Option, 'h')
+        ]));
+        assert_eq!(parser.next(), Some(Token::Option("hello", Some("world"))));
+    }
+
+    #[test]
+    fn long_with_optional_value_missing() {
+        let args = ["--hello"].into_iter();
+        let mut parser = Parser::new(args, LookupTable(&[
+            ("hello", ArgType::Option, 'h')
+        ]));
+        assert_eq!(parser.next(), Some(Token::Option("hello", None)));
+    }
+
+    #[test]
+    fn long_with_required_value() {
+        let args = ["--hello=world"].into_iter();
+        let mut parser = Parser::new(args, LookupTable(&[
+            ("hello", ArgType::Required, 'h')
+        ]));
+        assert_eq!(parser.next(), Some(Token::Option("hello", Some("world"))));
+    }
+
+    #[test]
+    fn long_flag_without_value() {
+        let args = ["--hello", "world"].into_iter();
+        let mut parser = Parser::new(args, LookupTable(&[
+            ("hello", ArgType::None, 'h')
+        ]));
+        assert_eq!(parser.next(), Some(Token::Option("hello", None)));
+        assert_eq!(parser.next(), Some(Token::Value("world")));
+    }
+
+    #[test]
+    fn dumb_test() {
+        let args = ["hello", "world"].into_iter();
+        let mut parser = Parser::new(args, LookupTable(&[]));
+        assert_eq!(parser.next(), Some(Token::Value("hello")));
+        assert_eq!(parser.next(), Some(Token::Value("world")));
     }
 }
