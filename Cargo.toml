@@ -1,5 +1,5 @@
 [workspace]
-members = ["builder", "parse", "tests"]
+members = ["parse", "tests"]
 resolver = "2"
 
 [workspace.package]
@@ -28,10 +28,7 @@ panic = "abort"
 
 [dependencies]
 parse = { path = "parse" }
-builder = { path = "builder", optional = true }
 
 [dev-dependencies]
 tests = { path = "tests" }
 
-[features]
-builder = ["dep:builder"]
